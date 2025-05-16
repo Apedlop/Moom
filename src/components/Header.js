@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
     width: width,
-    height: height * 0.25,
+    height: height * 0.23,
     position: "relative",
   },
   cloud: {
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   },
   circleSmall: {
     width: width * 0.45,
-    height: width * 0.60,
+    height: width * 0.50,
     borderRadius: width * 0.325,
     marginHorizontal: -width * 0.06,
     backgroundColor: "#600000",
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   },
   circleLarge: {
     width: width * 0.55,
-    height: width * 0.70,
+    height: width * 0.65,
     borderRadius: width * 0.325,
     marginHorizontal: -width * 0.06,
     backgroundColor: "#600000",

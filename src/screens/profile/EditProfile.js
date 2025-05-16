@@ -8,8 +8,8 @@ export default function EditProfile({ route, navigation }) {
   const [name, setName] = useState(user.name);
   const [surname, setsurname] = useState(user.surname);
   const [email, setEmail] = useState(user.email);
-  const [birthDate, setBirthDate] = useState(new Date(user.birthDate));
-  const [birthDateInput, setBirthDateInput] = useState(formatDate(new Date(user.birthDate))); // Inicializar con la fecha en formato DD/MM/YYYY
+  const [birthDate, setBirthDate] = useState(new Date(user.birthdate));
+  const [birthDateInput, setBirthDateInput] = useState(formatDate(new Date(user.birthdate))); // Inicializar con la fecha en formato DD/MM/YYYY
 
   const handleSave = () => {
     const updatedUser = {

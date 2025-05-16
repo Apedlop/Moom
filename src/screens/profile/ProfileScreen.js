@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import UserService from "../../api/userService";
+import FloatingButton from "../../components/FloatingButton";
 
 export default function ProfileScreen() {
   const [user, setUser] = React.useState(null);
@@ -17,6 +18,9 @@ export default function ProfileScreen() {
         console.error("Error fetching user data:", error);
       });
   }, []);
+
+  console.log
+
 
   if (!user) {
     return (
@@ -79,9 +83,9 @@ export default function ProfileScreen() {
         <Text style={styles.deleteButtonText}>Eliminar cuenta</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.fab} onPress={handleEdit}>
+      <FloatingButton style={styles.fab} onPress={handleEdit} pageScreen={"EditProfile"}>
         <Ionicons name="create-outline" size={24} color="#fff" />
-      </TouchableOpacity>
+      </FloatingButton>
     </View>
   );
 }
@@ -115,18 +119,6 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 16,
     color: "#000",
-  },
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 30,
-    backgroundColor: "#600000",
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 4,
   },
   logoutButton: {
     marginTop: 20,
