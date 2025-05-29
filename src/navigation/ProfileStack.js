@@ -2,7 +2,9 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Header from "../components/Header";
 import ProfileScreen from "../screens/profile/ProfileScreen";
 import EditProfile from "../screens/profile/EditProfile";
-import LogIn from "../screens/authentication/LogIn"; // Ajusta la ruta si es diferente
+import LogIn from "../screens/authentication/LogIn"; 
+import SignUp from "../screens/authentication/SignUp";
+import ForgotPassword from "../screens/authentication/ForgotPassword";
 
 const Stack = createNativeStackNavigator();
 
@@ -31,6 +33,10 @@ export default function ProfileStack() {
           <LogIn onLoginSuccess={() => navigation.replace("ProfileMain")} />
         )}
       />
+      <Stack.Screen name="SignUp">
+              {(props) => <SignUp {...props} onLoginSuccess={onLoginSuccess} />}
+            </Stack.Screen>
+            <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
     </Stack.Navigator>
   );
 }
