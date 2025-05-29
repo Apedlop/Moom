@@ -3,7 +3,6 @@ import HomeScreen from "../screens/home/HomeScreen";
 import InfoPhase from "../components/InfoPhase";
 import MenstrualForm from "../screens/home/MenstrualForm";
 import Header from "../components/Header";
-import Toast from "react-native-toast-message"; 
 
 const Stack = createNativeStackNavigator();
 
@@ -22,9 +21,9 @@ export default function HomeStack() {
         <Stack.Screen name="Details" children={() => <InfoPhase />} />
         <Stack.Screen
           name="MenstrualForm"
-          children={() => (
+          children={({ route }) => (
             <Header screenName="Formulario">
-              <MenstrualForm />
+              <MenstrualForm route={route} />
             </Header>
           )}
         />

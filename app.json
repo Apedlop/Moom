@@ -12,6 +12,18 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "permissions": ["NOTIFICATIONS", "RECEIVE_BOOT_COMPLETED"],
+    "useNextNotificationsApi": true,
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#600000",
+          "sounds": ["./assets/notification-sound.wav"]
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true
     },

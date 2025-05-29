@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,224 +6,254 @@ import {
   ScrollView,
   TouchableOpacity,
 } from "react-native";
-
-const sampleCycles = [
-  {
-    id: "1",
-    startDate: "2025-04-01",
-    endDate: "2025-04-28",
-    phases: [
-      { name: "Menstruación", days: 5, color: "#FF6B6B" },
-      { name: "Folicular", days: 9, color: "#FFD93D" },
-      { name: "Ovulación", days: 2, color: "#6BCB77" },
-      { name: "Lútea", days: 12, color: "#4D96FF" },
-    ],
-    menstruationDays: [
-      {
-        date: "2025-04-01",
-        sintomas: ["Cansancio", "Dolor abdominal"],
-        dolores: ["Dolor lumbar"],
-        notas: "Muy cansada por la mañana.",
-      },
-      {
-        date: "2025-04-02",
-        sintomas: ["Dolor de cabeza"],
-        dolores: ["Dolor lumbar", "Sensibilidad en los senos"],
-        notas: "El dolor fue más fuerte después del mediodía.",
-      },
-      {
-        date: "2025-04-03",
-        sintomas: ["Cansancio"],
-        dolores: [],
-        notas: "",
-      },
-      {
-        date: "2025-04-04",
-        sintomas: [],
-        dolores: ["Dolor abdominal"],
-        notas: "Mejoró un poco.",
-      },
-      {
-        date: "2025-04-05",
-        sintomas: ["Náuseas"],
-        dolores: ["Dolor lumbar"],
-        notas: "Noté náuseas al despertar.",
-      },
-    ],
-  },
-  {
-    id: "2",
-    startDate: "2025-03-01",
-    endDate: "2025-03-27",
-    phases: [
-      { name: "Menstruación", days: 4, color: "#FF6B6B" },
-      { name: "Folicular", days: 10, color: "#FFD93D" },
-      { name: "Ovulación", days: 3, color: "#6BCB77" },
-      { name: "Lútea", days: 10, color: "#4D96FF" },
-    ],
-    menstruationDays: [
-      {
-        date: "2025-03-01",
-        sintomas: ["Dolor lumbar"],
-        dolores: ["Dolor abdominal"],
-        notas: "Día fuerte de dolor.",
-      },
-      {
-        date: "2025-03-02",
-        sintomas: ["Cansancio"],
-        dolores: [],
-        notas: "Sentí un poco mejor.",
-      },
-      {
-        date: "2025-03-03",
-        sintomas: [],
-        dolores: ["Dolor de cabeza"],
-        notas: "",
-      },
-      {
-        date: "2025-03-04",
-        sintomas: ["Náuseas"],
-        dolores: ["Dolor abdominal"],
-        notas: "Náuseas leves.",
-      },
-    ],
-  },
-];
+import CycleService from "../../api/cycleService";
+import SymptomService from "../../api/symptomService";
+import { useUser } from "../../context/UserContext";
 
 export default function CycleHistoryWithNestedDropdowns() {
-  // Para controlar qué ciclos están desplegados
+  const { user } = useUser();
+  const userId = user.id;
+  
   const [expandedCycleIds, setExpandedCycleIds] = useState([]);
-  // Para controlar qué días están desplegados, guardamos objetos { cicloId, diaFecha }
   const [expandedDays, setExpandedDays] = useState([]);
+  const [cycles, setCycles] = useState([]);
+  const [symptoms, setSymptoms] = useState([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const cyclesResponse = await CycleService.getAllCycles();
+        const userCycles = cyclesResponse.data.filter(
+          (cycle) => cycle.userId === userId
+        );
+        setCycles(userCycles);
+
+        const symptomsResponse = await SymptomService.getAllSymptoms();
+        const userSymptoms = symptomsResponse.data.filter(
+          (symptom) => symptom.userId === userId
+        );
+        setSymptoms(userSymptoms);
+      } catch (error) {
+        console.error("Error cargando datos:", error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const calculateDurationPhases = (start, end) => {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const diffTime = endDate - startDate;
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  };
 
   const toggleCycleExpand = (id) => {
-    if (expandedCycleIds.includes(id)) {
-      setExpandedCycleIds(expandedCycleIds.filter((cid) => cid !== id));
-      // Cuando se cierra ciclo, cerramos también sus días
-      setExpandedDays(expandedDays.filter((d) => d.cycleId !== id));
-    } else {
-      setExpandedCycleIds([...expandedCycleIds, id]);
-    }
+    setExpandedCycleIds((prev) =>
+      prev.includes(id) ? prev.filter((cid) => cid !== id) : [...prev, id]
+    );
   };
 
   const toggleDayExpand = (cycleId, dayDate) => {
-    const key = `${cycleId}_${dayDate}`;
-    if (expandedDays.some((d) => d.cycleId === cycleId && d.dayDate === dayDate)) {
-      setExpandedDays(expandedDays.filter((d) => !(d.cycleId === cycleId && d.dayDate === dayDate)));
-    } else {
-      setExpandedDays([...expandedDays, { cycleId, dayDate }]);
-    }
+    setExpandedDays((prev) =>
+      prev.some((d) => d.cycleId === cycleId && d.dayDate === dayDate)
+        ? prev.filter((d) => !(d.cycleId === cycleId && d.dayDate === dayDate))
+        : [...prev, { cycleId, dayDate }]
+    );
   };
 
-  const calculateDuration = (start, end) => {
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    // +1 para incluir ambos días
-    const diffTime = endDate - startDate;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    return diffDays;
+  const calculateCycleEndDate = (startDateStr, cycleLength) => {
+    const startDate = new Date(startDateStr);
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + cycleLength - 1);
+    return endDate.toISOString().split("T")[0];
+  };
+
+  // Generar todos los días con síntomas para cada ciclo
+  const generateDaysWithSymptoms = (cycle) => {
+    // Obtener todos los síntomas de este ciclo
+    const cycleSymptoms = symptoms.filter((s) => s.cycleId === cycle.id);
+    
+    // Crear un mapa de fechas únicas con síntomas
+    const dateMap = {};
+    
+    cycleSymptoms.forEach((symptom) => {
+      const dateStr = new Date(symptom.date).toISOString().split("T")[0];
+      if (!dateMap[dateStr]) {
+        dateMap[dateStr] = [];
+      }
+      dateMap[dateStr].push(symptom);
+    });
+    
+    // Convertir a array de días
+    const days = Object.keys(dateMap).map(dateStr => {
+      const daySymptoms = dateMap[dateStr];
+      
+      return {
+        date: dateStr,
+        symptoms: daySymptoms.flatMap((s) =>
+          Array.isArray(s.typePeriod) ? s.typePeriod : []
+        ),
+        pains: daySymptoms.flatMap((s) =>
+          Array.isArray(s.typePain) ? s.typePain : []
+        ),
+        emotions: daySymptoms.flatMap((s) =>
+          Array.isArray(s.typeEmotion) ? s.typeEmotion : []
+        ),
+        notes: daySymptoms[0]?.notes || "",
+      };
+    });
+    
+    // Ordenar por fecha
+    days.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    return days;
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {sampleCycles.map((cycle) => {
-        const totalDays = cycle.phases.reduce((sum, phase) => sum + phase.days, 0);
+      {cycles.map((cycle) => {
+        const daysWithSymptoms = generateDaysWithSymptoms(cycle);
+        const totalDays = cycle.cycleLength;
 
         return (
           <View key={cycle.id} style={styles.cycleContainer}>
             <View style={styles.header}>
               <Text style={styles.dateText}>{cycle.startDate}</Text>
+              <Text style={styles.dateText}>Duración: {totalDays} días</Text>
               <Text style={styles.dateText}>
-              Duración: {calculateDuration(cycle.startDate, cycle.endDate)} días
-                </Text>
-              <Text style={styles.dateText}>{cycle.endDate}</Text>
+                {calculateCycleEndDate(cycle.startDate, cycle.cycleLength)}
+              </Text>
             </View>
 
             <View style={styles.progressBar}>
               {cycle.phases.map((phase, index) => {
-                const widthPercent = (phase.days / totalDays) * 100;
+                const phaseDays = calculateDurationPhases(
+                  phase.startDay,
+                  phase.endDay
+                );
+                const widthPercent = (phaseDays / totalDays) * 100;
                 return (
                   <View
                     key={index}
                     style={[
                       styles.phaseSegment,
-                      { backgroundColor: phase.color, width: `${widthPercent}%` },
+                      {
+                        backgroundColor: phase.color,
+                        width: `${widthPercent}%`,
+                      },
                     ]}
-                    accessible={true}
-                    accessibilityLabel={`${phase.name}: ${phase.days} días`}
                   />
                 );
               })}
             </View>
 
             <View style={styles.phaseLabels}>
-              {cycle.phases.map((phase, index) => (
-                <View key={index} style={styles.phaseLabelContainer}>
-                  <View style={[styles.colorBox, { backgroundColor: phase.color }]} />
-                  <Text style={styles.phaseLabelText}>
-                    {phase.name} ({phase.days}d)
-                  </Text>
-                </View>
-              ))}
+              {cycle.phases.map((phase, index) => {
+                const phaseDays = calculateDurationPhases(
+                  phase.startDay,
+                  phase.endDay
+                );
+                return (
+                  <View key={index} style={styles.phaseLabelContainer}>
+                    <View
+                      style={[
+                        styles.colorBox,
+                        { backgroundColor: phase.color },
+                      ]}
+                    />
+                    <Text style={styles.phaseLabelText}>
+                      {phase.phaseCycle} ({phaseDays}d)
+                    </Text>
+                  </View>
+                );
+              })}
             </View>
 
-            <TouchableOpacity
-              onPress={() => toggleCycleExpand(cycle.id)}
-              style={styles.expandButton}
-            >
-              <Text style={styles.expandButtonText}>
-                {expandedCycleIds.includes(cycle.id)
-                  ? "Ocultar detalles de menstruación"
-                  : "Mostrar detalles de menstruación"}
-              </Text>
-            </TouchableOpacity>
+            {daysWithSymptoms.length > 0 && (
+              <>
+                <TouchableOpacity
+                  onPress={() => toggleCycleExpand(cycle.id)}
+                  style={styles.expandButton}
+                >
+                  <Text style={styles.expandButtonText}>
+                    {expandedCycleIds.includes(cycle.id)
+                      ? "Ocultar días con síntomas"
+                      : `Mostrar días con síntomas (${daysWithSymptoms.length})`}
+                  </Text>
+                </TouchableOpacity>
 
-            {expandedCycleIds.includes(cycle.id) && (
-              <View style={styles.detailsContainer}>
-                {cycle.menstruationDays.map((day) => {
-                  const isDayExpanded = expandedDays.some(
-                    (d) => d.cycleId === cycle.id && d.dayDate === day.date
-                  );
-                  return (
-                    <View key={day.date} style={styles.dayContainer}>
-                      <TouchableOpacity
-                        onPress={() => toggleDayExpand(cycle.id, day.date)}
-                        style={styles.dayHeader}
-                      >
-                        <Text style={styles.dayTitle}>Día: {day.date}</Text>
-                        <Text style={styles.expandButtonText}>
-                          {isDayExpanded ? "▲" : "▼"}
-                        </Text>
-                      </TouchableOpacity>
+                {expandedCycleIds.includes(cycle.id) && (
+                  <View style={styles.detailsContainer}>
+                    {daysWithSymptoms.map((day) => {
+                      const isDayExpanded = expandedDays.some(
+                        (d) => d.cycleId === cycle.id && d.dayDate === day.date
+                      );
+                      return (
+                        <View key={day.date} style={styles.dayContainer}>
+                          <TouchableOpacity
+                            onPress={() => toggleDayExpand(cycle.id, day.date)}
+                            style={styles.dayHeader}
+                          >
+                            <Text style={styles.dayTitle}>Día: {day.date}</Text>
+                            <Text style={styles.expandButtonText}>
+                              {isDayExpanded ? "▲" : "▼"}
+                            </Text>
+                          </TouchableOpacity>
 
-                      {isDayExpanded && (
-                        <View style={styles.dayDetails}>
-                          <Text style={styles.subTitle}>Síntomas:</Text>
-                          {day.sintomas.length > 0 ? (
-                            day.sintomas.map((sintoma, i) => (
-                              <Text key={i} style={styles.detailText}>• {sintoma}</Text>
-                            ))
-                          ) : (
-                            <Text style={styles.detailText}>—</Text>
+                          {isDayExpanded && (
+                            <View style={styles.dayDetails}>
+                              {day.symptoms.length > 0 && (
+                                <>
+                                  <Text style={styles.subTitle}>
+                                    Tipo de sangrado:
+                                  </Text>
+                                  {day.symptoms.map((symptom, i) => (
+                                    <Text key={i} style={styles.detailText}>
+                                      • {symptom}
+                                    </Text>
+                                  ))}
+                                </>
+                              )}
+
+                              {day.pains.length > 0 && (
+                                <>
+                                  <Text style={styles.subTitle}>Dolores:</Text>
+                                  {day.pains.map((pain, i) => (
+                                    <Text key={i} style={styles.detailText}>
+                                      • {pain}
+                                    </Text>
+                                  ))}
+                                </>
+                              )}
+
+                              {day.emotions.length > 0 && (
+                                <>
+                                  <Text style={styles.subTitle}>Emociones:</Text>
+                                  {day.emotions.map((emotion, i) => (
+                                    <Text key={i} style={styles.detailText}>
+                                      • {emotion}
+                                    </Text>
+                                  ))}
+                                </>
+                              )}
+
+                              {day.notes && (
+                                <>
+                                  <Text style={styles.subTitle}>Notas:</Text>
+                                  <Text style={styles.detailText}>
+                                    {day.notes}
+                                  </Text>
+                                </>
+                              )}
+                            </View>
                           )}
-
-                          <Text style={styles.subTitle}>Dolores:</Text>
-                          {day.dolores.length > 0 ? (
-                            day.dolores.map((dolor, i) => (
-                              <Text key={i} style={styles.detailText}>• {dolor}</Text>
-                            ))
-                          ) : (
-                            <Text style={styles.detailText}>—</Text>
-                          )}
-
-                          <Text style={styles.subTitle}>Notas:</Text>
-                          <Text style={styles.detailText}>{day.notas || "—"}</Text>
                         </View>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
+                      );
+                    })}
+                  </View>
+                )}
+              </>
             )}
           </View>
         );
@@ -232,6 +262,7 @@ export default function CycleHistoryWithNestedDropdowns() {
   );
 }
 
+// Los estilos se mantienen igual que en tu versión original
 const styles = StyleSheet.create({
   container: {
     padding: 20,

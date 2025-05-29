@@ -1,58 +1,111 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
-import { formatDate, calculateAge } from '../../utils/dateUtils'; // Importar las funciones
+import React, { useState } from "react";
+import { View, Text, TextInput, Button, StyleSheet } from "react-native";
+import { calculateAge } from "../../utils/dateUtils";
+import UserService from "../../api/userService";
+import Calendar from "../../components/Calendar";
+import { useUser } from "../../context/UserContext";
 
 export default function EditProfile({ route, navigation }) {
-  const { user } = route.params;
+  const { user } = useUser();
 
-  const [name, setName] = useState(user.name);
-  const [surname, setsurname] = useState(user.surname);
-  const [email, setEmail] = useState(user.email);
-  const [birthDate, setBirthDate] = useState(new Date(user.birthdate));
-  const [birthDateInput, setBirthDateInput] = useState(formatDate(new Date(user.birthdate))); // Inicializar con la fecha en formato DD/MM/YYYY
+  const [userData, setUserData] = useState({
+    name: user.name || "",
+    surname: user.surname || "",
+    email: user.email || "",
+    password: user.password || "",
+    birthdate: new Date(user.birthdate),
+  });
 
-  const handleSave = () => {
-    const updatedUser = {
-      name,
-      surname,
-      email,
-      birthDate: birthDate.toISOString().split('T')[0], // Convertir a formato ISO
-    };
-    console.log("Usuario actualizado:", updatedUser);
-    navigation.goBack();
+  const [error, setError] = useState("");
+
+  const handleChange = (field, value) => {
+    setUserData({ ...userData, [field]: value });
   };
 
-  // Función para actualizar la fecha cuando el usuario la edita
-  const handleDateChange = (dateString) => {
-    const [day, month, year] = dateString.split('/').map(Number);
-    const newDate = new Date(year, month - 1, day);
-    if (newDate instanceof Date && !isNaN(newDate)) {
-      setBirthDate(newDate);
+  const isValidEmail = (email) => {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
+  };
+
+  const handleSave = async () => {
+    const { name, surname, email } = userData;
+
+    if (!name.trim() || !surname.trim() || !email.trim()) {
+      setError("Por favor, completa todos los campos obligatorios.");
+      return;
     }
-    setBirthDateInput(dateString);
+
+    if (!isValidEmail(email.trim())) {
+      setError("El correo electrónico no tiene un formato válido.");
+      return;
+    }
+
+    try {
+      const updatedUser = {
+        id: user.id,
+        name: userData.name.trim(),
+        surname: userData.surname.trim(),
+        email: userData.email.trim(),
+        password: userData.password.trim(),
+        birthdate: userData.birthdate.toISOString(),
+        lastPeriod: new Date(user.lastPeriod).toISOString(),
+        lastCycleLength: Number(user.lastCycleLength),
+        menstruationDuration: Number(user.menstruationDuration),
+      };
+
+      console.log("Actualizando usuario:", updatedUser);
+
+      await UserService.updateUser(user.id, updatedUser);
+      navigation.goBack();
+    } catch (err) {
+      console.log("Error al actualizar:", err);
+      setError("Error al guardar los cambios. Inténtalo nuevamente.");
+    }
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Nombre:</Text>
-      <TextInput style={styles.input} value={name} onChangeText={setName} />
-
-      <Text style={styles.label}>Apellido:</Text>
-      <TextInput style={styles.input} value={surname} onChangeText={setsurname} />
-
-      <Text style={styles.label}>Correo electrónico:</Text>
-      <TextInput style={styles.input} value={email} onChangeText={setEmail} keyboardType="email-address" />
-
-      <Text style={styles.label}>Fecha de nacimiento:</Text>
       <TextInput
         style={styles.input}
-        value={birthDateInput}
-        onChangeText={handleDateChange} // Cambiar fecha en formato DD/MM/YYYY
-        placeholder="DD/MM/YYYY"
-        keyboardType="numeric"
+        value={userData.name}
+        onChangeText={(text) => handleChange("name", text)}
       />
 
-      <Text style={styles.label}>Edad actual: {calculateAge(birthDate)} años</Text>
+      <Text style={styles.label}>Apellido:</Text>
+      <TextInput
+        style={styles.input}
+        value={userData.surname}
+        onChangeText={(text) => handleChange("surname", text)}
+      />
+
+      <Text style={styles.label}>Correo electrónico:</Text>
+      <TextInput
+        style={styles.input}
+        value={userData.email}
+        onChangeText={(text) => handleChange("email", text)}
+        keyboardType="email-address"
+      />
+
+      <Text style={styles.label}>Contraseña:</Text>
+      <TextInput
+        style={styles.input}
+        value={userData.password}
+        onChangeText={(text) => handleChange("password", text)}
+        secureTextEntry
+      />
+
+      <Text style={styles.label}>Fecha de nacimiento:</Text>
+      <Calendar
+        date={userData.birthdate}
+        onChangeDate={(selectedDate) => handleChange("birthdate", selectedDate)}
+      />
+
+      <Text style={styles.label}>
+        Edad actual: {calculateAge(userData.birthdate)} años
+      </Text>
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <View style={styles.button}>
         <Button title="Guardar" onPress={handleSave} color="#600000" />
@@ -68,21 +121,25 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginTop: 15,
-    color: '#444',
+    color: "#444",
   },
   input: {
     height: 40,
     width: 300,
-    borderColor: '#aaa',
+    borderColor: "#aaa",
     borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: 10,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     marginTop: 5,
   },
   button: {
     marginTop: 30,
+  },
+  error: {
+    color: "red",
+    marginTop: 10,
   },
 });

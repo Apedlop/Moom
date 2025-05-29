@@ -2,6 +2,7 @@ import { StyleSheet, View, Dimensions, Text, TouchableOpacity, ScrollView } from
 import React from "react";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import { colors } from "../config/colors"; 
 
 const { width, height } = Dimensions.get("window");
 
@@ -43,6 +44,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     width: "100%",
+    backgroundColor: colors.goldLight,
+
   },
   cloudWrapper: {
     alignItems: "center",
@@ -91,7 +94,6 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   scrollContent: {
-    paddingBottom: 60,
     flexGrow: 1,
     alignItems: "center",
     justifyContent: "flex-start",

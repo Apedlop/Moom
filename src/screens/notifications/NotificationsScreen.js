@@ -1,131 +1,222 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
-import { getNextMenstruationDate } from "../../utils/dateUtils";
-import { format, differenceInDays, isAfter } from "date-fns";
+import { View, Text, StyleSheet, FlatList, Button, Alert } from "react-native";
+import {
+  initNotifications,
+  scheduleDailyNotification,
+  scheduleNotificationOnDate,
+  getNotificationHistory,
+  clearNotificationHistory,
+} from "../../hooks/NotificationService";
 import * as Notifications from "expo-notifications";
-import * as Device from "expo-device";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import cycleService from "../../api/cycleService";
+import { useUser } from "../../context/UserContext";
 
-// Configuración para mostrar notificaciones cuando la app está en primer plano
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
+const NotificationsScreen = () => {
+  const { user } = useUser();
+  const idUser = user.id;
+  
+  const [history, setHistory] = useState([]);
+  const [cycleData, setCycleData] = useState(null);
 
-// Función para pedir permisos para notificaciones
-async function registerForPushNotificationsAsync() {
-  if (Device.isDevice) {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
+  // Funciones para programar notificaciones específicas del ciclo
+  const scheduleCycleStartNotification = async (startDate) => {
+    await scheduleNotificationOnDate(
+      "🩸 Comienza tu periodo",
+      "Tu periodo comienza hoy. Cuida de ti.",
+      startDate,
+      8,
+      0
+    );
+  };
 
-    if (existingStatus !== "granted") {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
+  const scheduleOvulationNotification = async (startDate) => {
+    const ovulationDate = new Date(startDate);
+    ovulationDate.setDate(ovulationDate.getDate() + 14);
 
-    if (finalStatus !== "granted") {
-      alert("Permiso para notificaciones denegado");
-      return false;
-    }
-    return true;
-  } else {
-    alert("Debes usar un dispositivo físico para las notificaciones");
-    return false;
-  }
-}
+    await scheduleNotificationOnDate(
+      "🌸 Día de ovulación",
+      "Hoy es tu día probable de ovulación.",
+      ovulationDate,
+      9,
+      0
+    );
+  };
 
-// Función para enviar notificación local inmediata
-async function enviarNotificacionLocal(titulo, cuerpo) {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: titulo,
-      body: cuerpo,
-    },
-    trigger: null, // dispara inmediatamente
-  });
-}
-
-export default function NotificationsScreen() {
-  const [notifications, setNotifications] = useState([]);
-
+  // Obtener ciclo y programar notificaciones
   useEffect(() => {
-    async function init() {
-      const permiso = await registerForPushNotificationsAsync();
-      if (!permiso) return;
+    const fetchAndSchedule = async () => {
+      try {
+        const cycle = await cycleService.getCyclesByUserId(idUser);
+        if (!cycle.data || cycle.data.length === 0) {
+          console.warn("No se obtuvo ningún ciclo desde la API");
+          return;
+        }
 
-      const today = new Date();
-      const nextMenstruation = getNextMenstruationDate();
+        const latestCycle = cycle.data[0];
+        setCycleData(latestCycle); // guardamos por si se necesita
 
-      const daysUntilNext = differenceInDays(nextMenstruation, today);
+        const startDate = new Date(latestCycle.startDate);
+        const cycleLength = latestCycle.cycleLength;
 
-      const messages = [];
+        if (isNaN(startDate) || typeof cycleLength !== "number") {
+          console.warn("startDate o cycleLength inválidos", latestCycle);
+          return;
+        }
 
-      if (daysUntilNext === 2) {
-        messages.push("🩸 Tu menstruación llegará en 2 días. ¡Prepárate!");
-        await enviarNotificacionLocal(
-          "Recordatorio menstrual",
-          "🩸 Tu menstruación llegará en 2 días."
+        // Inicializar permisos de notificaciones
+        const permissionGranted = await initNotifications();
+        if (!permissionGranted) {
+          console.warn("Permisos de notificación no concedidos");
+          return;
+        }
+
+        // Limpiar notificaciones anteriores para evitar duplicados
+        await Notifications.cancelAllScheduledNotificationsAsync();
+
+        // Notificación 2 días antes del siguiente ciclo
+        const nextCycleDate = new Date(startDate);
+        nextCycleDate.setDate(startDate.getDate() + cycleLength);
+        const twoDaysBefore = new Date(nextCycleDate);
+        twoDaysBefore.setDate(nextCycleDate.getDate() - 2);
+
+        await scheduleNotificationOnDate(
+          "🔔 ¡Tu ciclo está por comenzar!",
+          "Tu próximo ciclo comenzará en 2 días. Prepárate 💡",
+          twoDaysBefore,
+          8,
+          30
         );
+
+        // Notificación día inicio ciclo
+        await scheduleCycleStartNotification(startDate);
+
+        // Notificación día ovulación
+        await scheduleOvulationNotification(startDate);
+
+        // Cargar historial guardado
+        const saved = await getNotificationHistory();
+        setHistory(saved);
+      } catch (error) {
+        console.error("Error al obtener el ciclo y programar notificaciones:", error);
       }
+    };
 
-      if (differenceInDays(today, nextMenstruation) === 1 && isAfter(today, nextMenstruation)) {
-        messages.push("⚠️ Tu menstruación parece estar retrasada. ¿Quieres registrar algo?");
-        await enviarNotificacionLocal(
-          "Aviso retraso menstrual",
-          "⚠️ Tu menstruación parece estar retrasada."
-        );
-      }
-
-      setNotifications(messages);
-    }
-
-    init();
+    fetchAndSchedule();
   }, []);
 
+  // Listener para notificaciones recibidas y guardar en historial
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener(
+      async (notification) => {
+        const { title, body } = notification.request.content;
+        const receivedAt = new Date().toISOString();
+
+        const newEntry = { title, body, receivedAt };
+
+        try {
+          const existing = await AsyncStorage.getItem("notificationHistory");
+          const historyArray = existing ? JSON.parse(existing) : [];
+          historyArray.unshift(newEntry);
+          await AsyncStorage.setItem(
+            "notificationHistory",
+            JSON.stringify(historyArray)
+          );
+          setHistory(historyArray);
+        } catch (error) {
+          console.error("Error guardando historial:", error);
+        }
+      }
+    );
+
+    return () => subscription.remove();
+  }, []);
+
+  const handleClearHistory = async () => {
+    Alert.alert(
+      "Confirmar",
+      "¿Estás seguro de que deseas eliminar el historial de notificaciones?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            await clearNotificationHistory();
+            setHistory([]);
+          },
+        },
+      ]
+    );
+  };
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Notificaciones</Text>
-      {notifications.length === 0 ? (
-        <Text style={styles.empty}>No hay notificaciones por ahora 🎉</Text>
-      ) : (
-        notifications.map((msg, idx) => (
-          <View key={idx} style={styles.notification}>
-            <Text style={styles.message}>{msg}</Text>
+    <View style={styles.container}>
+      <View style={styles.buttonContainer}>
+        <Button
+          title="Borrar historial"
+          color="#d9534f"
+          onPress={handleClearHistory}
+        />
+      </View>
+      <FlatList
+        data={history}
+        keyExtractor={(_, index) => index.toString()}
+        renderItem={({ item }) => (
+          <View style={styles.notificationItem}>
+            <Text style={styles.title}>{item.title}</Text>
+            <Text>{item.body}</Text>
+            <Text style={styles.date}>
+              {new Date(item.receivedAt).toLocaleString()}
+            </Text>
           </View>
-        ))
-      )}
-    </ScrollView>
+        )}
+        ListEmptyComponent={
+          <Text style={styles.subtext}>Aún no hay notificaciones</Text>
+        }
+      />
+    </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    flexGrow: 1,
-    backgroundColor: "#f9f9f9",
+    flex: 1,
+    width: "85%",
+    alignSelf: "center",
+  },
+  text: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  subtext: {
+    textAlign: "center",
+    marginTop: 20,
+    color: "#888",
+  },
+  notificationItem: {
+    backgroundColor: "#fff",
+    padding: 12,
+    marginVertical: 6,
+    borderRadius: 8,
   },
   title: {
-    fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
   },
-  notification: {
-    backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
-    borderLeftWidth: 5,
-    borderLeftColor: "#e91e63",
+  date: {
+    fontSize: 12,
+    color: "#555",
+    marginTop: 4,
   },
-  message: {
-    fontSize: 16,
-  },
-  empty: {
-    fontSize: 16,
-    textAlign: "center",
-    color: "#999",
+  buttonContainer: {
+    marginTop: 16,
+    marginBottom: 16,
+    width: "50%",
+    justifyContent: "center",
+    alignSelf: "center",
   },
 });
+
+export default NotificationsScreen;

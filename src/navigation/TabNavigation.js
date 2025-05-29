@@ -1,10 +1,11 @@
-import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
+import { colors } from "../config/colors"; 
 import HomeStack from "./HomeStack";
 import ProfileStack from "./ProfileStack";
-import NotificationsScreen from "../screens/notifications/NotificationsScreen"; 
 import HistoryStack from "./HistoryStack";
+import NotificationStack from "./NotificationStack";
+import MenstrualFormStack from "./MenstrualFormStack";
 
 const Tab = createBottomTabNavigator();
 
@@ -27,14 +28,15 @@ export default function TabNavigator() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: "#600000",
-        tabBarInactiveTintColor: "gray",
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.gray,
       })}
     >
       <Tab.Screen name="Inicio" component={HomeStack} />
       <Tab.Screen name="Perfil" component={ProfileStack} />
+      {/* <Tab.Screen name="Formulario" component={MenstrualFormStack} /> */}
       <Tab.Screen name="Historial" component={HistoryStack} />
-      <Tab.Screen name="Notificaciones" component={NotificationsScreen} />
+      <Tab.Screen name="Notificaciones" component={NotificationStack} />
     </Tab.Navigator>
   );
 }
