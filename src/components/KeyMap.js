@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
-import cycleService from "../api/cycleService";
-
-const userId = "123"; // Reemplaza por valor dinámico si lo necesitas
+import { formatDate  } from "../utils/dateUtils";
 
 export default function KeyMap({ phases }) {
   return (
@@ -15,7 +13,7 @@ export default function KeyMap({ phases }) {
                 style={[styles.colorBox, { backgroundColor: phase.color }]}
               />
               <Text style={styles.label}>
-                {phase.phaseCycle} – {new Date(phase.startDay).toLocaleDateString()}
+                {phase.phaseCycle} - {formatDate(phase.startDay)}
               </Text>
             </View>
           </View>
@@ -27,14 +25,9 @@ export default function KeyMap({ phases }) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 12,
-    color: "#333",
-    alignSelf: "center",
+    padding: 10,
+    justifyContent: "center",
+    alignItems: "center",
   },
   row: {
     flexDirection: "row",
@@ -42,7 +35,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   column: {
-    width: "48%",
+    width: "50%",
     marginBottom: 12,
   },
   item: {

@@ -1,45 +1,70 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  RefreshControl,
 } from "react-native";
 import CycleService from "../../api/cycleService";
 import SymptomService from "../../api/symptomService";
 import { useUser } from "../../context/UserContext";
+import { useFocusEffect } from "@react-navigation/native";
+import { formatDate } from "../../utils/dateUtils";
 
-export default function CycleHistoryWithNestedDropdowns() {
+export default function HistoryScreen() {
   const { user } = useUser();
   const userId = user.id;
-  
+
   const [expandedCycleIds, setExpandedCycleIds] = useState([]);
   const [expandedDays, setExpandedDays] = useState([]);
   const [cycles, setCycles] = useState([]);
   const [symptoms, setSymptoms] = useState([]);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [refreshing, setRefreshing] = useState(false);
 
+  // En la función fetchData, modifica esta parte:
+  const fetchData = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      const cyclesResponse = await CycleService.getAllCycles();
+      const userCycles = cyclesResponse.data
+        .filter((cycle) => cycle.userId === userId)
+        // Ordenar por fecha de inicio (más reciente primero)
+        .sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
+
+      setCycles(userCycles);
+
+      const symptomsResponse = await SymptomService.getAllSymptoms();
+      const userSymptoms = symptomsResponse.data.filter(
+        (symptom) => symptom.userId === userId
+      );
+      setSymptoms(userSymptoms);
+
+      setLastUpdate(new Date());
+    } catch (error) {
+      console.error("Error cargando datos:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [userId]);
+
+  // Actualizar al montar el componente
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const cyclesResponse = await CycleService.getAllCycles();
-        const userCycles = cyclesResponse.data.filter(
-          (cycle) => cycle.userId === userId
-        );
-        setCycles(userCycles);
-
-        const symptomsResponse = await SymptomService.getAllSymptoms();
-        const userSymptoms = symptomsResponse.data.filter(
-          (symptom) => symptom.userId === userId
-        );
-        setSymptoms(userSymptoms);
-      } catch (error) {
-        console.error("Error cargando datos:", error);
-      }
-    };
-
     fetchData();
-  }, []);
+  }, [fetchData]);
+
+  // Actualizar cuando la pantalla recibe foco
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
+
+  const onRefresh = () => {
+    fetchData();
+  };
 
   const calculateDurationPhases = (start, end) => {
     const startDate = new Date(start);
@@ -69,14 +94,11 @@ export default function CycleHistoryWithNestedDropdowns() {
     return endDate.toISOString().split("T")[0];
   };
 
-  // Generar todos los días con síntomas para cada ciclo
   const generateDaysWithSymptoms = (cycle) => {
-    // Obtener todos los síntomas de este ciclo
     const cycleSymptoms = symptoms.filter((s) => s.cycleId === cycle.id);
-    
-    // Crear un mapa de fechas únicas con síntomas
+
     const dateMap = {};
-    
+
     cycleSymptoms.forEach((symptom) => {
       const dateStr = new Date(symptom.date).toISOString().split("T")[0];
       if (!dateMap[dateStr]) {
@@ -84,11 +106,10 @@ export default function CycleHistoryWithNestedDropdowns() {
       }
       dateMap[dateStr].push(symptom);
     });
-    
-    // Convertir a array de días
-    const days = Object.keys(dateMap).map(dateStr => {
+
+    const days = Object.keys(dateMap).map((dateStr) => {
       const daySymptoms = dateMap[dateStr];
-      
+
       return {
         date: dateStr,
         symptoms: daySymptoms.flatMap((s) =>
@@ -103,15 +124,24 @@ export default function CycleHistoryWithNestedDropdowns() {
         notes: daySymptoms[0]?.notes || "",
       };
     });
-    
-    // Ordenar por fecha
+
     days.sort((a, b) => new Date(a.date) - new Date(b.date));
-    
+
     return days;
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={["#600000"]}
+          tintColor="#600000"
+        />
+      }
+    >
       {cycles.map((cycle) => {
         const daysWithSymptoms = generateDaysWithSymptoms(cycle);
         const totalDays = cycle.cycleLength;
@@ -119,10 +149,10 @@ export default function CycleHistoryWithNestedDropdowns() {
         return (
           <View key={cycle.id} style={styles.cycleContainer}>
             <View style={styles.header}>
-              <Text style={styles.dateText}>{cycle.startDate}</Text>
+              <Text style={styles.dateText}>{formatDate(cycle.startDate)}</Text>
               <Text style={styles.dateText}>Duración: {totalDays} días</Text>
               <Text style={styles.dateText}>
-                {calculateCycleEndDate(cycle.startDate, cycle.cycleLength)}
+                {formatDate(calculateCycleEndDate(cycle.startDate, cycle.cycleLength))}
               </Text>
             </View>
 
@@ -195,7 +225,7 @@ export default function CycleHistoryWithNestedDropdowns() {
                             onPress={() => toggleDayExpand(cycle.id, day.date)}
                             style={styles.dayHeader}
                           >
-                            <Text style={styles.dayTitle}>Día: {day.date}</Text>
+                            <Text style={styles.dayTitle}>Día: {formatDate(day.date)}</Text>
                             <Text style={styles.expandButtonText}>
                               {isDayExpanded ? "▲" : "▼"}
                             </Text>
@@ -229,7 +259,9 @@ export default function CycleHistoryWithNestedDropdowns() {
 
                               {day.emotions.length > 0 && (
                                 <>
-                                  <Text style={styles.subTitle}>Emociones:</Text>
+                                  <Text style={styles.subTitle}>
+                                    Emociones:
+                                  </Text>
                                   {day.emotions.map((emotion, i) => (
                                     <Text key={i} style={styles.detailText}>
                                       • {emotion}
@@ -262,11 +294,16 @@ export default function CycleHistoryWithNestedDropdowns() {
   );
 }
 
-// Los estilos se mantienen igual que en tu versión original
 const styles = StyleSheet.create({
   container: {
     padding: 20,
     paddingBottom: 40,
+  },
+  lastUpdateText: {
+    fontSize: 12,
+    color: "#666",
+    textAlign: "right",
+    marginBottom: 10,
   },
   cycleContainer: {
     marginBottom: 30,

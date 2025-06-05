@@ -5,7 +5,6 @@ import HomeStack from "./HomeStack";
 import ProfileStack from "./ProfileStack";
 import HistoryStack from "./HistoryStack";
 import NotificationStack from "./NotificationStack";
-import MenstrualFormStack from "./MenstrualFormStack";
 
 const Tab = createBottomTabNavigator();
 
@@ -33,10 +32,9 @@ export default function TabNavigator() {
       })}
     >
       <Tab.Screen name="Inicio" component={HomeStack} />
-      <Tab.Screen name="Perfil" component={ProfileStack} />
-      {/* <Tab.Screen name="Formulario" component={MenstrualFormStack} /> */}
       <Tab.Screen name="Historial" component={HistoryStack} />
       <Tab.Screen name="Notificaciones" component={NotificationStack} />
+      <Tab.Screen name="Perfil" component={ProfileStack} />
     </Tab.Navigator>
   );
 }

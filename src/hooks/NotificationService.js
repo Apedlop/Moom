@@ -65,6 +65,8 @@ export const scheduleNotificationOnDate = async (title, body, date, hour, minute
   if (scheduledDate < new Date()) {
     console.warn("La fecha programada ya pasó");
     return false;
+  } else {
+    console.log("Esperando que llegue el día.")
   }
 
   await Notifications.scheduleNotificationAsync({

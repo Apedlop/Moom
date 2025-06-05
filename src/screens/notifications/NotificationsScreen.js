@@ -15,7 +15,7 @@ import { useUser } from "../../context/UserContext";
 const NotificationsScreen = () => {
   const { user } = useUser();
   const idUser = user.id;
-  
+
   const [history, setHistory] = useState([]);
   const [cycleData, setCycleData] = useState(null);
 
@@ -43,7 +43,6 @@ const NotificationsScreen = () => {
     );
   };
 
-  // Obtener ciclo y programar notificaciones
   useEffect(() => {
     const fetchAndSchedule = async () => {
       try {
@@ -53,7 +52,11 @@ const NotificationsScreen = () => {
           return;
         }
 
-        const latestCycle = cycle.data[0];
+        // Ordenar por fecha de inicio descendente (más reciente primero)
+        const sortedCycles = [...cycle.data].sort(
+          (a, b) => new Date(b.startDate) - new Date(a.startDate)
+        );
+        const latestCycle = sortedCycles[0];
         setCycleData(latestCycle); // guardamos por si se necesita
 
         const startDate = new Date(latestCycle.startDate);
@@ -80,12 +83,15 @@ const NotificationsScreen = () => {
         const twoDaysBefore = new Date(nextCycleDate);
         twoDaysBefore.setDate(nextCycleDate.getDate() - 2);
 
+        console.log(nextCycleDate, "fecha del siguiente ciclo");
+        console.log(twoDaysBefore, "dos días antes");
+
         await scheduleNotificationOnDate(
           "🔔 ¡Tu ciclo está por comenzar!",
           "Tu próximo ciclo comenzará en 2 días. Prepárate 💡",
           twoDaysBefore,
-          8,
-          30
+          20,
+          29
         );
 
         // Notificación día inicio ciclo
@@ -98,7 +104,10 @@ const NotificationsScreen = () => {
         const saved = await getNotificationHistory();
         setHistory(saved);
       } catch (error) {
-        console.error("Error al obtener el ciclo y programar notificaciones:", error);
+        console.error(
+          "Error al obtener el ciclo y programar notificaciones:",
+          error
+        );
       }
     };
 
@@ -159,22 +168,37 @@ const NotificationsScreen = () => {
           onPress={handleClearHistory}
         />
       </View>
-      <FlatList
-        data={history}
-        keyExtractor={(_, index) => index.toString()}
-        renderItem={({ item }) => (
-          <View style={styles.notificationItem}>
+
+      <View style={styles.buttonContainer}>
+        <Button
+          title="Probar notificación"
+          color="#0275d8"
+          onPress={async () => {
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: "🔔 Notificación de prueba",
+                body: "Esto es una notificación enviada manualmente.",
+                sound: true,
+              },
+              trigger: null, // Inmediata
+            });
+          }}
+        />
+      </View>
+
+      {history.length === 0 ? (
+        <Text style={styles.subtext}>Aún no hay notificaciones</Text>
+      ) : (
+        history.map((item, index) => (
+          <View key={index.toString()} style={styles.notificationItem}>
             <Text style={styles.title}>{item.title}</Text>
             <Text>{item.body}</Text>
             <Text style={styles.date}>
               {new Date(item.receivedAt).toLocaleString()}
             </Text>
           </View>
-        )}
-        ListEmptyComponent={
-          <Text style={styles.subtext}>Aún no hay notificaciones</Text>
-        }
-      />
+        ))
+      )}
     </View>
   );
 };

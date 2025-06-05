@@ -1,7 +1,9 @@
-import { View, StyleSheet, useWindowDimensions, Alert } from "react-native";
+import { View, StyleSheet, useWindowDimensions } from "react-native";
 import React, { useState, useEffect } from "react";
-import Svg, { G, Circle, Text as SvgText } from "react-native-svg";
+import Svg, { G, Circle, Text as SvgText, Rect } from "react-native-svg";
+import { useNavigation } from "@react-navigation/native";
 import InfoPhase from "./InfoPhase";
+import { formatDate } from "../utils/dateUtils";
 
 function getCurrentCycleDay(startDate) {
   const msPerDay = 24 * 60 * 60 * 1000;
@@ -53,8 +55,7 @@ export default function CycleCircle({ user, prediction, cycle }) {
       console.log("Esperando a que estén todos los parámetros definidos...");
       return;
     }
-  console.log("CycleCircle props:", { user, prediction, cycle });
-
+    console.log("CycleCircle props:", { user, prediction, cycle });
 
     const processedPhases = cycle.phases.map((phase) => {
       const start = new Date(phase.startDay);
@@ -104,6 +105,11 @@ export default function CycleCircle({ user, prediction, cycle }) {
     };
   }, [startDate, cycleLength]);
 
+  const navigation = useNavigation();
+
+  const handlePress = () => {
+    navigation.navigate("MenstrualForm", { prediction });
+  };
   // Calcula el día dentro del ciclo (módulo)
   const currentDayInCycle = ((currentDayAbsolute - 1) % cycleLength) + 1;
 
@@ -238,7 +244,7 @@ export default function CycleCircle({ user, prediction, cycle }) {
 
         <SvgText
           x={center}
-          y={center}
+          y={center * 0.9}
           fill="#333"
           fontSize={radius * 0.12}
           fontWeight="bold"
@@ -252,16 +258,43 @@ export default function CycleCircle({ user, prediction, cycle }) {
             : "Tu próximo periodo en:"}
         </SvgText>
         {delayedDays === 0 && (
-          <SvgText
-            x={center}
-            y={center + radius * 0.18}
-            fill="#333"
-            fontSize={radius * 0.08}
-            textAnchor="middle"
-            alignmentBaseline="middle"
-          >
-            {prediction?.daysUntilPeriod ?? "-"}      días
-          </SvgText>
+          <>
+            <SvgText
+              x={center * 0.70}
+              y={center + radius * 0.08}
+              fill="#333"
+              fontSize={radius * 0.08}
+              textAnchor="middle"
+              alignmentBaseline="middle"
+            >
+              {prediction?.daysUntilPeriod ?? "-"}             días ➝
+              {formatDate(prediction?.nextPeriodDate) ?? "-"}
+            </SvgText>
+
+            {/* Botón rectángulo con + dentro */}
+            <Rect
+              x={center - radius * 0.125} // Centrar el rect
+              y={center + radius * 0.22} // Justo debajo del texto (ajusta si quieres)
+              width={radius * 0.27} // Ancho suficiente para el +
+              height={radius * 0.27}
+              fill="#600000"
+              rx={radius * 0.05}
+              ry={radius * 0.05}
+              onPress={handlePress}
+            />
+            <SvgText
+              x={center * 1.01} // Centro horizontalmente dentro del rectángulo
+              y={center + radius * 0.37} // Centrar verticalmente dentro del rectángulo (y + height/2)
+              fill="white"
+              fontSize={radius * 0.15} // Más grande para el +
+              fontWeight="bold"
+              textAnchor="middle"
+              alignmentBaseline="middle"
+              onPress={handlePress}
+            >
+              ＋
+            </SvgText>
+          </>
         )}
       </Svg>
 

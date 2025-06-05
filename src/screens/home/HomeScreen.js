@@ -62,27 +62,13 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      {!user ? (
-        <View>Cargando...</View>
-      ) : (
-        <View>
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            style={styles.scrollView}
-          >
-            <KeyMap phases={cycle.phases} />
-            <CycleCircle user={user} prediction={prediction} cycle={cycle} />
-          </ScrollView>
-          <View style={styles.buttonWrapper}>
-            <FloatingButton
-              pageScreen={"MenstrualForm"}
-              params={{ prediction }}
-            >
-              <Ionicons name="add" size={24} color="#fff" />
-            </FloatingButton>
-          </View>
-        </View>
-      )}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        style={styles.scrollView}
+      >
+        <KeyMap phases={cycle.phases} />
+        <CycleCircle user={user} prediction={prediction} cycle={cycle} />
+      </ScrollView>
     </View>
   );
 }
@@ -91,19 +77,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     position: "relative",
-    justifyContent: "center",
   },
   scrollView: {
-    flex: 1, // Ocupa todo el espacio disponible
+    flex: 1,
   },
   scrollContent: {
-    flexGrow: 1, // Permite que el ScrollView ocupe el espacio necesario.
-    paddingBottom: 80, // Añade espacio al final para que el botón no tape contenido.
-  },
-  buttonWrapper: {
-    position: "absolute",
-    bottom: 20,
-    right: 20,
-    zIndex: 9999,
+    flexGrow: 1,
+    paddingBottom: 80,
   },
 });
